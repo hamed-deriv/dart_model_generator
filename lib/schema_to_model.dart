@@ -4,7 +4,7 @@ import 'package:dart_model_generator/extension.dart';
 
 class DartClassGenerator {
   final List<String> _enums = <String>[];
-  final List<StringBuffer> _nestedClasses = <StringBuffer>[];
+  final List<String> _nestedClasses = <String>[];
 
   String result(
     String jsonSchema, [
@@ -66,14 +66,16 @@ class DartClassGenerator {
 
     switch (fieldType) {
       case 'object':
-        _nestedClasses.add(
-          _generateDartClassFromJsonSchema(
-            jsonEncode(fieldSchema),
-            fieldName.capitalize,
-          ),
+        final String nestedClassName = fieldName.capitalize;
+
+        final StringBuffer nestedClassBuffer = _generateDartClassFromJsonSchema(
+          jsonEncode(fieldSchema),
+          nestedClassName,
         );
 
-        return fieldName.capitalize;
+        _nestedClasses.add('$nestedClassBuffer');
+
+        return nestedClassName;
       case 'array':
         final Map<String, dynamic> itemsSchema =
             fieldSchema['items'] as Map<String, dynamic>;
@@ -82,8 +84,9 @@ class DartClassGenerator {
       case 'string':
         return 'String';
       case 'number':
+        return 'double';
       case 'integer':
-        return 'num';
+        return 'int';
       case 'boolean':
         return 'bool';
 
@@ -106,7 +109,15 @@ void main() {
           "enum": ["male", "female", "other"]
         },
         "email": { "type": "string" },
-        "address": {
+        "address1": {
+            "type": "object",
+            "properties": {
+              "street": { "type": "string" },
+              "city": { "type": "string" },
+              "zipcode": { "type": "string" }
+            }
+          },
+          "address2": {
           "type": "object",
           "properties": {
             "street": { "type": "string" },
