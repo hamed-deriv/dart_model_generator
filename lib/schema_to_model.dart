@@ -77,10 +77,16 @@ class DartClassGenerator {
 
         return nestedClassName;
       case 'array':
-        final Map<String, dynamic> itemsSchema =
-            fieldSchema['items'] as Map<String, dynamic>;
-        final String itemsType = _getFieldType(itemsSchema, '');
-        return 'List<$itemsType>';
+        final String nestedClassName = fieldName.capitalize;
+
+        final StringBuffer nestedClassBuffer = _generateDartClassFromJsonSchema(
+          jsonEncode(fieldSchema['items']),
+          nestedClassName,
+        );
+
+        _nestedClasses.add('$nestedClassBuffer');
+
+        return 'List<$nestedClassName>';
       case 'string':
         return 'String';
       case 'number':
@@ -129,7 +135,14 @@ void main() {
         "phoneNumbers": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "object",
+            "properties": {
+              "number": { "type": "string" },
+              "type": {
+                "type": "string",
+                "enum": ["home", "work", "fax"]
+              }
+            }
           }
         }
       },
