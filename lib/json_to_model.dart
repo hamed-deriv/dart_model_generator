@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dart_model_generator/extension.dart';
 
 class ClassInfo {
@@ -100,4 +102,26 @@ bool compareClassData(
   }
 
   return true;
+}
+
+void main() {
+  const String json = '''{ 
+      "coffee": {
+          "region": [
+              {"id":1,"name":"John Doe"},
+              {"id":2,"name":"Don Joeh"}
+          ],
+          "country": {"id":2,"company":"ACME"}
+      }, 
+      "brewing": {
+          "region": [
+              {"id":1,"name":"John Doe"},
+              {"id":2,"name":"Don Joeh"}
+          ],
+          "country": {"id":2,"company":"ACME"}
+      }
+  }''';
+
+  Map<String, dynamic> jsonData = jsonDecode(json);
+  generateModel("Sample", jsonData);
 }

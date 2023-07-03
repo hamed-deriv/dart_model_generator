@@ -1,71 +1,92 @@
 import 'dart:convert';
 
-class JsonSchemaConverter {
-  String convertToDartClass(Map<String, dynamic> schema, String className) {
-    StringBuffer buffer = StringBuffer();
+import 'package:dart_model_generator/extension.dart';
+
+class DartClassGenerator {
+  final List<String> _enums = <String>[];
+  final List<StringBuffer> _nestedClasses = <StringBuffer>[];
+
+  String result(
+    String jsonSchema, [
+    String title = 'MyClass',
+  ]) {
+    final StringBuffer buffer = StringBuffer();
+
+    buffer.write(_generateDartClassFromJsonSchema(jsonSchema, title));
+    _enums.forEach(buffer.writeln);
+    _nestedClasses.forEach(buffer.writeln);
+
+    return '$buffer';
+  }
+
+  StringBuffer _generateDartClassFromJsonSchema(
+    String jsonSchema,
+    String title,
+  ) {
+    final dynamic schema = json.decode(jsonSchema);
+    final String className = schema['title'] ?? title;
+    final List<dynamic> requiredFields = schema['required'] ?? <String>[];
+
+    final StringBuffer buffer = StringBuffer();
+
     buffer.writeln('class $className {');
 
     if (schema.containsKey('properties')) {
-      var properties = schema['properties'] as Map<String, dynamic>;
-      properties.forEach((propertyName, property) {
-        var propertyType = _getPropertyType(property, propertyName);
-        var isRequired = schema['required'] != null &&
-            schema['required'].contains(propertyName);
+      final Map<String, dynamic> properties = schema['properties'];
 
-        buffer.writeln(
-            '  ${isRequired ? 'required' : 'optional'} $propertyType $propertyName;');
+      properties.forEach((String fieldName, dynamic fieldSchema) {
+        final String fieldType = _getFieldType(fieldSchema, fieldName);
+        final bool isRequired = requiredFields.contains(fieldName);
+        final String fieldDeclaration =
+            isRequired ? '$fieldType $fieldName;' : '$fieldType? $fieldName;';
+
+        buffer.writeln('  $fieldDeclaration');
       });
     }
 
     buffer.writeln('}');
 
-    return buffer.toString();
+    return buffer;
   }
 
-  String _getPropertyType(Map<String, dynamic> property, String propertyName) {
-    if (property.containsKey('type')) {
-      var type = property['type'];
-      if (type is String) {
-        return _getTypeFromJsonType(type);
-      } else if (type is List) {
-        var typeList = type.cast<String>();
-        if (typeList.contains('null')) {
-          typeList.remove('null');
-        }
-        return typeList.map(_getTypeFromJsonType).join(' | ');
-      }
-    } else if (property.containsKey('enum')) {
-      var enumValues = property['enum'] as List<dynamic>;
-      var enumType =
-          '${propertyName[0].toUpperCase()}${propertyName.substring(1)}';
-      var enumValuesString = enumValues.map((value) => "'$value'").join(', ');
-      return 'enum $enumType { $enumValuesString }';
-    } else if (property.containsKey('properties')) {
-      var nestedSchema = property['properties'] as Map<String, dynamic>;
-      var nestedClassName =
-          '${propertyName[0].toUpperCase()}${propertyName.substring(1)}';
-      return convertToDartClass(nestedSchema, nestedClassName);
+  String _getFieldType(
+    Map<String, dynamic> fieldSchema,
+    String fieldName,
+  ) {
+    if (fieldSchema.containsKey('enum')) {
+      final String enumValues =
+          fieldSchema['enum'].map((dynamic value) => value).join(', ');
+
+      _enums.add('enum ${fieldName.capitalize} { $enumValues }');
+
+      return fieldName.capitalize;
     }
 
-    return 'dynamic';
-  }
+    final String fieldType = fieldSchema['type'];
 
-  String _getTypeFromJsonType(String jsonType) {
-    switch (jsonType) {
-      case 'null':
-        return 'Null';
-      case 'boolean':
-        return 'bool';
-      case 'integer':
-        return 'int';
-      case 'number':
-        return 'double';
+    switch (fieldType) {
+      case 'object':
+        _nestedClasses.add(
+          _generateDartClassFromJsonSchema(
+            jsonEncode(fieldSchema),
+            fieldName.capitalize,
+          ),
+        );
+
+        return fieldName;
+      case 'array':
+        final Map<String, dynamic> itemsSchema =
+            fieldSchema['items'] as Map<String, dynamic>;
+        final String itemsType = _getFieldType(itemsSchema, '');
+        return 'List<$itemsType>';
       case 'string':
         return 'String';
-      case 'array':
-        return 'List<dynamic>';
-      case 'object':
-        return 'dynamic'; // We handle nested schemas separately
+      case 'number':
+      case 'integer':
+        return 'num';
+      case 'boolean':
+        return 'bool';
+
       default:
         return 'dynamic';
     }
@@ -73,83 +94,38 @@ class JsonSchemaConverter {
 }
 
 void main() {
-  var className = 'Person';
-
-  var converter = JsonSchemaConverter();
-  var dartClass =
-      converter.convertToDartClass(jsonDecode(jsonSchema), className);
-
-  print(dartClass);
-}
-
-final jsonSchema = r'''{
+  const String jsonSchema = '''
+    {
+      "title": "Person",
       "type": "object",
       "properties": {
-        "name": {
-          "type": "string"
-        },
-        "age": {
-          "type": "integer"
-        },
-        "isAdult": {
-          "type": "boolean"
-        },
-        "height": {
-          "type": "number"
-        },
-        "birthDate": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "email": {
-          "type": "string",
-          "format": "email"
-        },
-        "address": {
-          "type": "object",
-          "properties": {
-            "street": {
-              "type": "string"
-            },
-            "city": {
-              "type": "string"
-            },
-            "country": {
-              "type": "string"
-            }
-          },
-          "required": ["street", "city", "country"]
-        },
-        "phoneNumbers": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^[0-9]{3}-[0-9]{3}-[0-9]{4}$"
-          }
-        },
-        "friends": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string"
-              },
-              "age": {
-                "type": "integer"
-              }
-            },
-            "required": ["name", "age"]
-          }
-        },
+        "name": { "type": "string" },
+        "age": { "type": "integer" },
         "gender": {
           "type": "string",
           "enum": ["male", "female", "other"]
         },
-        "favoriteColor": {
-          "type": ["string", "null"],
-          "enum": ["red", "green", "blue", null]
+        "email": { "type": "string" },
+        "address": {
+          "type": "object",
+          "properties": {
+            "street": { "type": "string" },
+            "city": { "type": "string" },
+            "zipcode": { "type": "string" }
+          },
+          "required": ["street", "city"]
+        },
+        "phoneNumbers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
-      "required": ["name", "age", "isAdult", "birthDate", "email", "address"]
-    }''';
+      "required": ["name", "email"]
+    }
+  ''';
+
+  final String dartClass = DartClassGenerator().result(jsonSchema);
+  print(dartClass);
+}
