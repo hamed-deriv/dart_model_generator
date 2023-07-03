@@ -44,7 +44,7 @@ class DartClassGenerator {
       });
     }
 
-    buffer.writeln('}');
+    buffer.writeln('}\n');
 
     return buffer;
   }
@@ -57,7 +57,7 @@ class DartClassGenerator {
       final String enumValues =
           fieldSchema['enum'].map((dynamic value) => value).join(', ');
 
-      _enums.add('enum ${fieldName.capitalize} { $enumValues }');
+      _enums.add('enum ${fieldName.capitalize} { $enumValues }\n');
 
       return fieldName.capitalize;
     }
@@ -73,7 +73,7 @@ class DartClassGenerator {
           ),
         );
 
-        return fieldName;
+        return fieldName.capitalize;
       case 'array':
         final Map<String, dynamic> itemsSchema =
             fieldSchema['items'] as Map<String, dynamic>;
